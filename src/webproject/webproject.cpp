@@ -127,8 +127,8 @@ int main(int argc, char **argv) {
     if (out_path.empty()) {
         std::cerr << "Target directory is not specified (use -o <target>)" << std::endl;return 4;
     }
-    auto input_path = std::filesystem::absolute(in_path);
-    auto output_path = std::filesystem::absolute(out_path);
+    auto input_path = std::filesystem::weakly_canonical(in_path);
+    auto output_path = std::filesystem::weakly_canonical(out_path);
 
     try {
 
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
 
                 req.send(200,"OK",content_type, in);
             });
-            std::cout << "Server started at http://" << server_addr << "/ . Press Ctrl-C to stop" <<  std::endl;
+            std::cout << "Server started at http://" << server_addr << "/ -> " << output_path.string() << ". Press Ctrl-C to stop" <<  std::endl;
             do {
                 //exit by ctrl+c;
                 server.run({});
