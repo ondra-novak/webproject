@@ -108,3 +108,47 @@ During the server mode, the utility stays active and serves the output page on g
 page is reloaded. The server can be stopped by Ctrl+C
 
 
+## Example of usage
+
+
+
+main.js
+```
+//#style style.css
+//#header header.html
+
+function hello_world() {
+  document.body.appendChild(document.createTextNode("Hello world"));
+}
+
+document.body.onload=hello_world;
+
+```
+
+header.html
+```
+<title>Hello world</title>
+```
+
+style.css
+```
+body {
+  color:blue;
+}
+```
+
+### Build web
+```
+webproject -o /tmp/web_example/index.html main.js
+```
+
+### Build web and start server
+```
+webproject -s localhost:10000 -o /tmp/web_example/index.html main.js
+```
+
+### Build web - link resources by hardlinks
+```
+webproject -mh -o /tmp/web_example/index.html main.js
+```
+

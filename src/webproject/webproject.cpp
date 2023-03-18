@@ -145,7 +145,8 @@ int main(int argc, char **argv) {
                 std::cerr << "Invalid port address. Failed to start server" << std::endl;return 6;
             }
             auto base_dir = output_path.parent_path();
-            HttpServer server(port,server_addr.substr(0,sep), [&](std::string_view path)->HttpServer::Response{
+            HttpServer server(port,server_addr.substr(0,sep), [&](HttpServer::Request &req) {
+                auto path = req.path;                
                 auto q = path.find('?');
                 if (q != path.npos) path = path.substr(0,q);
                 q = path.find('/');
@@ -161,35 +162,41 @@ int main(int argc, char **argv) {
                 if (!path.empty() && path != "." && path != "..") {
                     file_path = file_path/path;
                 }
+                if (file_path == base_dir) {
+                    file_path = output_path;
+                }
                 if (file_path == output_path) {
                     bld.build(out_path,build_mode);                    
-                }
+                } 
                 std::ifstream in((std::string(file_path)));
-                if (!in) return {404,"Not found",{}};
+                if (!in) {
+                    std::cout << "GET " << req.path << " -> " << file_path.string() << " NOT FOUND!" << std::endl;
+                    req.send(404,"Not found","text/plain","Not found");
+                    return;
+                }
 
                 std::string ext = file_path.extension();
 
-                HttpServer::Response resp;
-                resp.code = 200;
-                if (ext == ".html" || ext == ".htm") resp.content_type = "text/html;charset=utf-8";
-                else if (ext == ".css")  resp.content_type = "text/css;charset=utf-8";
-                else if (ext == ".js")  resp.content_type = "text/javascript;charset=utf-8";
-                else if (ext == ".png")  resp.content_type = "image/png";
-                else if (ext == ".jpg")  resp.content_type = "image/jpeg";
-                else if (ext == ".jpeg")  resp.content_type = "image/jpeg";
-                else if (ext == ".gif")  resp.content_type = "image/gif";
-                else if (ext == ".svg")  resp.content_type = "image/svg+xml";
-                else resp.content_type = "application/octet-stream";
-                int i = in.get();
-                while (i != EOF) {
-                    resp.data.push_back(i);
-                    i = in.get();
-                }
-                return resp;
+                std::string_view content_type;
+                if (ext == ".html" || ext == ".htm") content_type = "text/html;charset=utf-8";
+                else if (ext == ".css")  content_type = "text/css;charset=utf-8";
+                else if (ext == ".js")  content_type = "text/javascript;charset=utf-8";
+                else if (ext == ".png")  content_type = "image/png";
+                else if (ext == ".jpg")  content_type = "image/jpeg";
+                else if (ext == ".jpeg")  content_type = "image/jpeg";
+                else if (ext == ".gif")  content_type = "image/gif";
+                else if (ext == ".svg")  content_type = "image/svg+xml";
+                else content_type = "application/octet-stream";
+
+                std::cout << "GET " << req.path << " -> " << file_path.string() << " " << content_type << std::endl;
+
+
+                req.send(200,"OK",content_type, in);
             });
+            std::cout << "Server started at http://" << server_addr << "/ . Press Ctrl-C to stop" <<  std::endl;
             do {
                 //exit by ctrl+c;
-                server.perform_for(std::chrono::hours(1));
+                server.run({});
             } while (true);
         }
 

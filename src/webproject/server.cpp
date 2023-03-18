@@ -205,6 +205,7 @@ void HttpServer::send_status(std::string &buffer, int conn, std::string_view sta
         buffer.append("\r\n");
     }
     write_all(conn, buffer);
+    ::close(conn);
 }
 
 void HttpServer::serve(int conn, std::string &buff)  noexcept{
@@ -231,21 +232,10 @@ void HttpServer::serve(int conn, std::string &buff)  noexcept{
     }
 
     try {
-        auto response = _h(path);
-        buff.clear();
-        buff.append("HTTP/1.0 ");
-        buff.append(std::to_string(response.code));
-        buff.push_back(' ');
-        if (response.code == 200) buff.append(" OK");
-        else buff.append(response.data);
-        if (!response.content_type.empty()) {
-            buff.append("\r\nContent-Type: ");
-            buff.append(response.content_type);
-        }
-        buff.append("\r\nConnection: close\r\n\r\n");
-        if (write_all(conn,buff)) {
-            write_all(conn,response.data);
-        }
+
+        Request req(path, conn);
+        _h(req);
+
     } catch (std::exception &e) {
         send_status(buff, conn, status500, e.what());
     } catch (...) {
@@ -253,57 +243,49 @@ void HttpServer::serve(int conn, std::string &buff)  noexcept{
     }
 }
 
-void HttpServer::start()  noexcept{
-    _worker = std::thread([=,this]{
-        while (accept_and_serve());
+void HttpServer::run(std::stop_token stop_token) {
+
+    std::stop_callback cb(stop_token, [&]{
+        ::shutdown(SHUT_RD, _mother);
     });
-}
-
-void HttpServer::stop()  noexcept{
-    if (!_stop.exchange(true)) {
-        ::shutdown(_mother, SHUT_RD);
-        if (_worker.joinable()) {
-            _worker.join();
-        }
-        ::close(_mother);
+    std::string buffer;
+    int s = ::accept(_mother,0,0);
+    while (s >= 0) {
+        serve(s, buffer);
+        s = ::accept(_mother,0,0);
     }
-}
-
-bool HttpServer::perform_until(std::chrono::system_clock::time_point tp)  noexcept{
-    do{
-        int timeout = std::max<int>(0,static_cast<int>(
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                        tp - std::chrono::system_clock::now()
-                ).count()));
-        pollfd pfd = {_mother, POLLIN,0};
-        int e = poll(&pfd, 1, timeout);
-        if (e == 0) return true;
-    } while (accept_and_serve());
-    return false;
-}
-
-bool HttpServer::accept_and_serve()  noexcept{
-    int s = accept(_mother, 0, 0);
-    if (s<0) {
-        int e = errno;
-        return !_stop && e == EINTR;
-    }
-    serve(s, _buffer);
-    ::close(s);
-    return true;
-}
-
-bool HttpServer::perform_now()  noexcept{
-    pollfd pfd = {_mother, POLLIN,0};
-    int e  = poll(&pfd,1,0);
-    if (e == 0) return true;
-    return accept_and_serve();
-
 }
 
 
 HttpServer::~HttpServer() {
-    stop();
 }
 
+void HttpServer::Request::send(int code, std::string_view message, std::string_view content_type, std::string_view data)
+{
+    std::ostringstream bld;
+    bld << "HTTP/1.0 " << code << " " << message;
+    if (!content_type.empty()) bld << "\r\nContent-Type: " << content_type;
+    bld << "\r\nContent-Length:" << data.size();
+    bld << "\r\nConnection: close\r\n\r\n";
+    write_all(socket, bld.view());
+    write_all(socket, data);
+    ::close(socket);
+    socket = -1;
+}
 
+void HttpServer::Request::send(int code, std::string_view message, std::string_view content_type, std::istream &data)
+{
+    std::ostringstream bld;
+    bld << "HTTP/1.0 " << code << " " << message;
+    if (!content_type.empty()) bld << "\r\nContent-Type: " << content_type;
+    bld << "\r\nConnection: close\r\n\r\n";
+    write_all(socket, bld.view());
+    std::array<char, 65536> buff;
+    while (!!data) {
+        data.read(buff.data(), buff.size());
+        std::string_view v(buff.data(), data.gcount());
+        write_all(socket, v);
+    }
+    ::close(socket);
+    socket = -1;
+}
