@@ -1,6 +1,7 @@
 #include "webproject.h"
 #include "builder.h"
 #include "server.h"
+#include <webproject_version.h>
 
 #include <webproject_version.h>
 #include <iostream>
@@ -19,6 +20,7 @@ enum class SetMode {
 void show_help() {
     std::cout << "Usage: webproject <switches> source_file.js\n\n"
         "-h (--help)               Show help\n"
+        "-v                        Print version\n"
         "-I <path>                 Add search path for scripts\n"
         "-C <path>                 Add search path for styles\n"
         "-H <path>                 Add search path for header fragments\n"
@@ -66,6 +68,8 @@ int main(int argc, char **argv) {
                 case 's': set_mode = SetMode::server;break;
                 case 'o': set_mode = SetMode::output;break;
                 case 'm': set_mode = SetMode::mode;break;
+                case 'v': std::cout << PROJECT_WEBPROJECT_VERSION << std::endl;
+                          return 0;
                 case 'h': show_help();return 0;break;
                 default: std::cerr << "unknown switch -" <<  c << std::endl; return 1;
             }
