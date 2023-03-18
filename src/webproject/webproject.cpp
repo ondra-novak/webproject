@@ -3,7 +3,6 @@
 #include "server.h"
 #include <webproject_version.h>
 
-#include <webproject_version.h>
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
