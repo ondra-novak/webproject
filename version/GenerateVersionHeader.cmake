@@ -19,5 +19,3 @@ if(NOT DEFINED PROJECT_VERSION)
   set(PROJECT_VERSION v0.0.0-unknown)
   message(WARNING "Failed to determine version from Git tags. Using default version \"${PROJECT_VERSION}\".")
 endif()
-
-configure_file(${SRC} ${DST} @ONLY)

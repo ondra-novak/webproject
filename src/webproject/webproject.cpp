@@ -169,6 +169,7 @@ int main(int argc, char **argv) {
                     file_path = output_path;
                 }
                 if (file_path == output_path) {
+                    bld.prepare(input_path,srch);
                     bld.build(out_path,build_mode);                    
                 } 
                 std::ifstream in((std::string(file_path)));
