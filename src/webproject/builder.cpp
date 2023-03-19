@@ -75,12 +75,13 @@ bool PageBuilder::process_file(const std::filesystem::path & src_file, const Sea
                     continue;
                 }
 
-                ++index;
 
                 bool include_file = true;
                 if (resource == &PageBuilder::_scripts) {
                     include_file = process_file(p, paths);
                 }
+
+                ++index;
 
                 if (include_file) {
                     auto iter = (this->*resource).find(p);
@@ -207,6 +208,7 @@ struct JSFilter {
         comment,
         linecomment,
         quotes,
+        squotes,
         slash,
         begslash,
         text,
@@ -234,9 +236,15 @@ struct JSFilter {
                 switch (c) {
                     case EOF: return {};
                     case '"': if (last != '\\') mode = text; last = c; return std::string_view(&last,1);
-                    default: last = c; return std::string_view(&last,1);
+                    default: buff[0]='~'; buff[1] = last = c; return std::string_view(buff+1,1);
                 }
-            case Mode::begslash:
+            case Mode::squotes:
+                switch (c) {
+                    case EOF: return {};
+                    case '\'': if (last != '\\') mode = text; last = c; return std::string_view(&last,1);
+                    default: buff[0]='~'; buff[1] = last = c; return std::string_view(buff+1,1);
+                }
+            case Mode::begslash:            
                 buff[0] = '\n';
                 idx++;  
                 [[fallthrough]];
@@ -246,7 +254,8 @@ struct JSFilter {
                     case EOF: buff[idx] = '/'; buff[idx+1] = '\n'; return std::string_view(buff,idx+2);
                     case '/': mode = linecomment;return {};
                     case '*': last = 0; mode=comment;return {};
-                    case '"': buff[idx] = '/'; buff[idx+1] = c; mode = text; mode = quotes; return std::string_view(buff,idx+2);
+                    case '"': buff[idx] = '/'; buff[idx+1] = c; mode = quotes; return std::string_view(buff,idx+2);
+                    case '\'': buff[idx] = '/'; buff[idx+1] = c; mode = squotes; return std::string_view(buff,idx+2);
                     case '\n':buff[idx] = '/'; mode=newline; return std::string_view(buff,idx+1);
                     default: buff[idx] = '/'; buff[idx+1] = c; mode = text; return std::string_view(buff,idx+2);
                 }
@@ -259,6 +268,7 @@ struct JSFilter {
                     case '\r': return {};
                     case '/': mode = begslash; return {};
                     case '"': mode = quotes; buff[0] = '\n';buff[1] = c; return std::string_view(buff,1);
+                    case '\'': mode = squotes; buff[0] = '\n';buff[1] = c; return std::string_view(buff,1);
                     default: mode = text;buff[0] = '\n'; buff[1] = c; return std::string_view(buff,2);
                 }
             default:
@@ -269,6 +279,7 @@ struct JSFilter {
                     case '\n': 
                     case '\r': mode = newline; return {};
                     case '"': last = c; mode = quotes; return std::string_view(&last,1);
+                    case '\'': last = c; mode = squotes; return std::string_view(&last,1);
                     default: last = c;  return std::string_view(&last,1);
                 }        
         }
@@ -360,7 +371,7 @@ void PageBuilder::build_page(const std::filesystem::path &target_html, BuildMode
             continue;;
         }
     }
-    out << "<SCRIPT type=\"text/javascript\"><!--\n";
+    out << "<SCRIPT type=\"text/javascript\">\n";
     out << "\"use strict\";\n";
 
     if (has_template) {
@@ -381,7 +392,7 @@ function loadTemplate(name) {
         out << ";\n";
     }
 
-    out << "//-->\n</SCRIPT>";
+    out << "\n</SCRIPT>";
 
 
     for (const auto &h: scripts_link) {
