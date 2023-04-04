@@ -267,8 +267,8 @@ struct JSFilter {
                     case '\n':
                     case '\r': return {};
                     case '/': mode = begslash; return {};
-                    case '"': mode = quotes; buff[0] = '\n';buff[1] = c; return std::string_view(buff,1);
-                    case '\'': mode = squotes; buff[0] = '\n';buff[1] = c; return std::string_view(buff,1);
+                    case '"': mode = quotes; buff[0] = '\n';buff[1] = c; return std::string_view(buff,2);
+                    case '\'': mode = squotes; buff[0] = '\n';buff[1] = c; return std::string_view(buff,2);
                     default: mode = text;buff[0] = '\n'; buff[1] = c; return std::string_view(buff,2);
                 }
             default:
